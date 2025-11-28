@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
-import { connect } from "../../dbConfig/dbConfig";
-import Status from "../../models/status";
-
-
-connect();
+import { connectDB } from "@/lib/mongodb";
+import Status from "@/models/status";
 
 export async function GET() {
+  await connectDB();
 
   const now = new Date();
   const today = now.toISOString().split("T")[0];

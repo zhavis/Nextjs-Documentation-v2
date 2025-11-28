@@ -1,30 +1,33 @@
 import { NextResponse } from "next/server";
+import { connectDB } from "@/lib/mongodb";
+import { Status } from "@/models/Status";
 
 export async function GET() {
-  const daysCount = 7;
+  await connectDB();
+
   const now = new Date();
-  const days: { day: string; ping: number; status: string }[] = [];
+  const today = now.toISOString().split("T")[0];
 
-  for (let i = daysCount - 1; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(now.getDate() - i);
+  // Ping server today
+  const ping = await pingServer();
+  const status = classifyPing(ping);
 
-    let ping = -1;
-    let status = "down";
+  // Save today's status (insert or update)
+  await Status.findOneAndUpdate(
+    { day: today },
+    { ping, status },
+    { upsert: true, new: true }
+  );
 
-    if (i === 0) {
-      ping = await pingServer();
-      status = classifyPing(ping);
-    }
-    days.push({
-      day: date.toISOString().split("T")[0],
-      ping,
-      status,
-    });
-  }
+  // Fetch last 7 days from DB
+  const pastDays = await Status.find({})
+    .sort({ day: 1 })
+    .limit(7)
+    .lean();
 
-  return NextResponse.json({ days });
+  return NextResponse.json({ days: pastDays });
 }
+
 async function pingServer(): Promise<number> {
   try {
     const start = Date.now();
@@ -35,9 +38,10 @@ async function pingServer(): Promise<number> {
     return -1;
   }
 }
+
 function classifyPing(ping: number): string {
-  if (ping === -1) return "down";        
-  if (ping < 200) return "good";         
-  if (ping < 400) return "slow";         
-  return "degraded";                    
+  if (ping === -1) return "down";
+  if (ping < 200) return "good";
+  if (ping < 400) return "slow";
+  return "degraded";
 }

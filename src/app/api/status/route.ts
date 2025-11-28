@@ -35,12 +35,15 @@ async function pingServer(): Promise<number> {
   try {
     const start = Date.now();
     const res = await fetch(`${process.env.BASE_URL}/api/alive`);
-    if (!res.ok) throw new Error("ping failed");
+    console.log("Ping response status:", res.status);
+    if (!res.ok) throw new Error("Ping failed");
     return Date.now() - start;
-  } catch {
+  } catch (err) {
+    console.error("Ping error:", err);
     return -1;
   }
 }
+
 
 function classifyPing(ping: number): string {
   if (ping === -1) return "down";

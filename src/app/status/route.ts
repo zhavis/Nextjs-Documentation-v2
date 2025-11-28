@@ -1,25 +1,24 @@
 import { NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongodb";
-import { Status } from "@/models/Status";
+import { connect } from "../../dbConfig/dbConfig";
+import Status from "../../models/status";
+
+
+connect();
 
 export async function GET() {
-  await connectDB();
 
   const now = new Date();
   const today = now.toISOString().split("T")[0];
 
-  // Ping server today
   const ping = await pingServer();
   const status = classifyPing(ping);
 
-  // Save today's status (insert or update)
   await Status.findOneAndUpdate(
     { day: today },
     { ping, status },
     { upsert: true, new: true }
   );
 
-  // Fetch last 7 days from DB
   const pastDays = await Status.find({})
     .sort({ day: 1 })
     .limit(7)

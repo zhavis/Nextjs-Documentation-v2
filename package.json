@@ -1,5 +1,5 @@
 {
-  "name": "next-auth",
+  "name": "next-doc",
   "version": "0.1.0",
   "private": true,
   "author": "(https://github.com/zhavis)",
@@ -12,6 +12,7 @@
   "dependencies": {
     "axios": "^1.6.8",
     "bcryptjs": "^2.4.3",
+    "framer-motion": "^12.23.24",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.3.0",
     "next": "14.1.4",

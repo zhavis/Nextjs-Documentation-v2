@@ -4,13 +4,20 @@ import "./globals.css";
 import { Inter } from "next/font/google";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 import { ProgressProvider, useProgress } from "./api/users/progress/ProgressContext";
 import { HiOutlineMenu, HiX, HiUser } from "react-icons/hi";
+import { motion, AnimatePresence } from "framer-motion";
 
 const inter = Inter({ subsets: ["latin"] });
+
+type Page = {
+  title: string;
+  href?: string;
+  children?: Page[];
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -19,14 +26,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
 
-  const pages = [
+  const pages: Page[] = [
     { title: "Introduction", href: "/introduction" },
     { title: "Getting Started", href: "/getting-started" },
-    { title: "Guides", href: "/guides" },
+    {
+      title: "Guides",
+      children: [
+        { title: "Installing", href: "/guides/installing" },
+        { title: "Components", href: "/guides/components" },
+        { title: "Configuration", href: "/guides/configuration" },
+        { title: "Deployment", href: "/guides/deployment" },
+      ],
+    },
     { title: "FAQ", href: "/faq" },
+    { title: "Status", href: "/status" },
+    { title: "Roadmap", href: "/roadmap" },
   ];
 
   useEffect(() => {
+    let mounted = true;
     const checkAuth = async () => {
       try {
         const res = await fetch("/api/users/me", {
@@ -36,6 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         });
 
         const result = await res.json();
+        if (!mounted) return;
         if (result?.data?.email) {
           setLoggedIn(true);
           setUserEmail(result.data.email);
@@ -44,11 +63,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           setUserEmail(null);
         }
       } catch (err) {
-        console.error(err);
+        if (!mounted) return;
         setLoggedIn(false);
         setUserEmail(null);
-        toast.error("Failed to fetch user info");
       } finally {
+        if (!mounted) return;
         setAuthLoading(false);
       }
     };
@@ -56,12 +75,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     checkAuth();
     const handler = () => checkAuth();
     window.addEventListener("authChanged", handler);
-    return () => window.removeEventListener("authChanged", handler);
+    return () => {
+      mounted = false;
+      window.removeEventListener("authChanged", handler);
+    };
   }, []);
 
   return (
     <html lang="en">
-      <body className={`${inter.className} bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col`}>
+      <body
+        className={`${inter.className} bg-gradient-to-br from-slate-100 to-slate-200 text-slate-800 antialiased min-h-screen flex flex-col`}
+      >
         <Toaster />
         <ProgressProvider>
           <LayoutContent
@@ -97,11 +121,12 @@ function LayoutContent({
   userEmail: string | null;
   mobileOpen: boolean;
   setMobileOpen: (v: boolean) => void;
-  pathname: string;
-  pages: { title: string; href: string }[];
+  pathname: string | null;
+  pages: Page[];
 }) {
   const { loading: progressLoading, progressPercentage } = useProgress();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [guidesOpen, setGuidesOpen] = useState<boolean>(() => pathname?.startsWith("/guides") ?? false);
   const [searchTerm, setSearchTerm] = useState("");
 
   const isLoading = authLoading || progressLoading;
@@ -120,122 +145,191 @@ function LayoutContent({
   if (isLoading) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-white z-50">
-        <div className="w-16 h-16 border-4 border-blue-500 border-dashed rounded-full animate-spin mb-4"></div>
-        <p className="text-sm text-gray-500">{`Loading progress ${progressPercentage || 0}%...`}</p>
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full"
+        />
+        <p className="text-sm text-gray-500 mt-4">Loading {progressPercentage || 0}%...</p>
       </div>
     );
   }
+
   return (
     <div className="flex flex-1">
-      <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-white/20 backdrop-blur-md shadow-md border-b border-white/20">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-400 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
+      <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-white/30 backdrop-blur-xl shadow-lg border-b border-white/20">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg">
             TT
           </div>
-          <span className="font-bold text-indigo-600 text-lg backdrop-blur-sm">TailwindTutorial</span>
-        </div>
-        <div className="flex items-center gap-3 bg-white/20 backdrop-blur-md rounded-full p-1 shadow-lg">
+          <span className="font-bold text-indigo-700 text-lg">TailwindTutorial</span>
+        </motion.div>
+
+        <div className="flex items-center gap-3">
           <button
-            className="md:hidden flex items-center justify-center w-10 h-10 rounded-full hover:bg-white/30 text-indigo-600 transition-colors"
+            className="md:hidden flex items-center justify-center w-10 h-10 rounded-xl hover:bg-white/40 text-indigo-600 transition"
             onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label="Toggle menu"
           >
             {mobileOpen ? <HiX className="w-6 h-6" /> : <HiOutlineMenu className="w-6 h-6" />}
           </button>
+
+          {/* User */}
+          {/** hide user controls if auth disabled (but we don't have authConfig here) */}
           <div className="relative">
             <button
               onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-indigo-600 shadow-lg hover:scale-105 hover:bg-white/30 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              className="w-10 h-10 rounded-xl bg-white/40 flex items-center justify-center text-indigo-600 shadow hover:bg-white/60 transition"
+              aria-label="User menu"
             >
               <HiUser className="w-6 h-6" />
             </button>
 
-            {dropdownOpen && loggedIn && (
-              <div className="absolute right-0 mt-2 w-40 bg-white/20 backdrop-blur-md rounded-lg shadow-lg overflow-hidden flex flex-col z-50">
-                <Link
-                  href="/profile"
-                  className="px-4 py-2 text-sm text-indigo-700 hover:bg-white/30"
-                  onClick={() => setDropdownOpen(false)}
+            <AnimatePresence>
+              {dropdownOpen && loggedIn && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  className="absolute right-0 mt-2 w-44 bg-white/60 backdrop-blur-xl rounded-xl shadow-lg overflow-hidden"
                 >
-                  Profile
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="px-4 py-2 text-sm text-indigo-700 text-left hover:bg-white/30"
-                >
-                  Logout
-                </button>
-              </div>
-            )}
+                  <Link
+                    href="/profile"
+                    className="px-4 py-2 text-sm hover:bg-white/70 block text-indigo-700"
+                    onClick={() => setDropdownOpen(false)}
+                  >
+                    Profile
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="px-4 py-2 text-sm text-left hover:bg-white/70 text-indigo-700 w-full"
+                  >
+                    Logout
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </header>
+
       <aside
-        className={`fixed top-0 left-0 z-40 h-full w-72 bg-white border-r border-slate-200 bg-white/20 backdrop-blur-md overflow-auto pt-24 transform transition-transform duration-200 ease-in-out ${
+        className={`fixed top-0 left-0 z-40 h-full w-72 bg-white/50 backdrop-blur-xl border-r border-slate-200 pt-24 overflow-auto transform transition-transform duration-300 ease-in-out ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         } md:translate-x-0`}
       >
-        <nav className="px-2 py-4 flex-1">
+        <nav className="px-4 py-4">
           <div className="md:hidden flex items-center gap-3 px-3 mb-4">
-            {loggedIn && userEmail && (
+            {loggedIn && userEmail ? (
               <>
                 <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold">
                   {userEmail.charAt(0).toUpperCase()}
                 </div>
                 <span className="text-indigo-700 font-medium truncate">{userEmail}</span>
               </>
-            )}
+            ) : null}
           </div>
-          <div className="px-3 mb-4">
-            <input
-              type="text"
-              placeholder="Search..."
-              className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <ul className="space-y-2 text-md">
-            {pages
-              .filter((p) => p.title.toLowerCase().includes(searchTerm.toLowerCase()))
-              .map((p) => (
-                <li key={p.href}>
-                  <Link
-                    href={p.href}
-                    className={`block px-3 py-2 rounded-md hover:bg-slate-50 ${
-                      pathname === p.href ? "bg-indigo-100 font-medium text-indigo-700" : ""
-                    }`}
-                    onClick={() => setMobileOpen(false)}
-                  >
-                    {p.title}
-                  </Link>
-                </li>
-              ))}
-          </ul>
 
+          <input
+            type="text"
+            placeholder="Search..."
+            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+
+          <ul className="space-y-2 text-md">
+            {pages.map((p) => {
+              if (p.children && p.children.length > 0) {
+                const filteredChildren = p.children.filter((c) =>
+                  c.title.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+                if (searchTerm && filteredChildren.length === 0) return null;
+
+                return (
+                  <li key={p.title}>
+                    <button
+                      onClick={() => setGuidesOpen((s) => !s)}
+                      className={`w-full flex justify-between items-center px-3 py-2 rounded-xl hover:bg-slate-100 transition ${
+                        pathname?.startsWith("/guides") ? "bg-indigo-100 text-indigo-700 font-semibold" : ""
+                      }`}
+                      aria-expanded={guidesOpen}
+                    >
+                      {p.title}
+                      <span>{guidesOpen ? "▲" : "▼"}</span>
+                    </button>
+
+                    <AnimatePresence>
+                      {guidesOpen && (
+                        <motion.ul
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="ml-4 mt-2 space-y-1 overflow-hidden"
+                        >
+                          {filteredChildren.map((child) => (
+                            <li key={child.href}>
+                              <Link
+                                href={child.href || "#"}
+                                onClick={() => setMobileOpen(false)}
+                                className={`block px-3 py-2 rounded-md hover:bg-slate-100 ${
+                                  pathname === child.href ? "bg-indigo-100 text-indigo-700 font-semibold" : ""
+                                }`}
+                              >
+                                {child.title}
+                              </Link>
+                            </li>
+                          ))}
+                        </motion.ul>
+                      )}
+                    </AnimatePresence>
+                  </li>
+                );
+              }
+              if (p.href) {
+                if (searchTerm && !p.title.toLowerCase().includes(searchTerm.toLowerCase())) return null;
+
+                return (
+                  <li key={p.href}>
+                    <Link
+                      href={p.href}
+                      onClick={() => setMobileOpen(false)}
+                      className={`block px-3 py-2 rounded-xl hover:bg-slate-100 transition ${
+                        pathname === p.href ? "bg-indigo-100 font-semibold text-indigo-700" : ""
+                      }`}
+                    >
+                      {p.title}
+                    </Link>
+                  </li>
+                );
+              }
+
+              return null;
+            })}
+          </ul>
           {loggedIn && (
             <button
               onClick={handleLogout}
-              className="mt-4 w-full px-3 py-2 text-sm text-indigo-700 bg-white/20 rounded-md hover:bg-white/30"
+              className="mt-6 w-full px-3 py-2 text-sm text-indigo-700 bg-white/40 rounded-xl hover:bg-white/60 shadow"
             >
               Logout
             </button>
           )}
-        </nav>
 
-        <div className="px-4 py-4 border-t border-slate-100 text-xs text-slate-500 flex flex-col gap-2">
-          <div>
-            Version <span className="font-medium text-slate-700">1.0.0</span>
+          <div className="px-4 py-4 border-t border-slate-100 text-xs text-slate-500 flex flex-col gap-2 mt-6">
+            <div>
+              Version <span className="font-medium text-slate-700">1.0.0</span>
+            </div>
+            <div>
+              <a href="https://github.com/zhavis" className="underline">
+                https://github.com/zhavis
+              </a>
+            </div>
           </div>
-          <div>
-            <a href="https://github.com/zhavis">
-          https://github.com/zhavis
-          </a>
-          </div>
-        </div>
+        </nav>
       </aside>
       <main className="flex-1 p-6 pt-24 md:ml-72">{children}</main>
     </div>
   );
 }
-
 

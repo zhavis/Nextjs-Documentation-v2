@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { connectDB } from "../../../dbConfig/dbConfig";
+import { connect } from "../../../dbConfig/dbConfig";
 import Status from "../../../models/status";
 
+connect();
+
 export async function GET() {
-  await connectDB();
 
   const now = new Date();
   const today = now.toISOString().split("T")[0];
